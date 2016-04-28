@@ -1,0 +1,134 @@
+Option Compare Database
+Option Explicit
+
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'                       Standard Errors                        '
+'                   **********************                     '
+'                                                              '
+'      This module contains functions that catch inbuilt Access'
+'      errors and replaces them with user friendly error       '
+'      descriptions.                                           '
+'                                                              '
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
+' Module    : BasStandardErrors
+' Revised   : August 2004 - additional comments added
+' Author    : Paul O'Flaherty of Paul David Technologies Ltd www.pdtech.co.uk
+' Conditions: This code is free to include and distribute in your applications
+'               on the condition that you include this commentary
+' Usage
+' Include the following code in all forms on the Form_Error event:
+'       Private Sub Form_Error(DataErr As Integer, Response As Integer)
+'           If StandardErrors(DataErr) = True Then Response = False
+'       End Sub
+'
+' In the error handler of all code include the following:
+'    If StandardErrors(Err) = False Then
+'        MsgBox Err & ": " & Err.Description
+'    End If
+'
+' Note that you can replace/add to the MsgBox line with handlers for
+' more specific errors that the routine may generate.
+
+
+Public Function StandardErrors(ByVal intErrorNumber As Integer, Optional blnShowUnknownError As Boolean) As Boolean
+    StandardErrors = True
+    DoCmd.Echo True
+    Select Case intErrorNumber
+        Case 2105, 3314, 3316, 3101, 2046, 2169 'Cannot save current record
+            FormattedMsgBox "Cannot save/delete/modify this record." & _
+             "@Not all the required information for the current record has been entered." & _
+             "@Complete the remaining fields, or choose 'Undo' from the Edit menu " & _
+             "to cancel your changes before trying this action again.", vbExclamation
+        Case 2501 'Delete operation cancelled
+             FormattedMsgBox "Delete Cancelled." & _
+             "@The selected record(s) has not been deleted. You may have manually cancelled the deletion, attempted to delete reference data that is in use or you may not have permission to delete this data" & _
+             "@The operation was cancelled.", vbInformation
+        Case 3200 'Record has related data
+            FormattedMsgBox "This record could not be deleted." & _
+            "@The record could not be deleted because related information exists." & _
+            "@You must delete all related information before you can delete this record.", _
+            vbExclamation
+        Case 3022, 2115, 3399 'Duplicate data
+            FormattedMsgBox "Cannot add this record." & _
+            "@A record with the key details you have entered already exists, you cannot add duplicate data." & _
+            "@To continue, either modify the record, or press the Escape key to clear it.", _
+            vbExclamation
+        Case 2046 'Cannot got to new record
+             FormattedMsgBox "Cannot go to New Record." & _
+            "@Cannot start a new record at this time." & _
+            "@You may already be on a new record, or this form may not allow records to be added.", _
+            vbExclamation
+        Case 2113 'Entry is not appropriate for the field's data type
+            FormattedMsgBox "Cannot Add Entry to Field." & _
+            "@The information you entered for this field does not match the expected data type." & _
+            "@For example, you may have entered text when a number was expected, or a number when a date was expected.  " & _
+            "You must change your entry, or clear it (by pressing the 'Escape' key once) before you can proceed.", _
+            vbExclamation
+        Case 71
+            FormattedMsgBox "Cannot access floppy disk." & _
+                "@Please ensure that the disk is correctly inserted in the drive.  If the floppy drive " & _
+                "is external, please check that the cables are properly attached and try again." & _
+                "@If you still encounter this problem after checking the above, please try another disk.", vbExclamation, "Floppy Disk Error"
+        Case 70
+            FormattedMsgBox "Cannot perform file operation." & _
+                "@You may be trying to access a file that is already open or " & _
+                "save to a folder or modify a file to which you do not have permissions." & _
+                "@Please check the file is not already in use and that you have permission to use the files/folder affected.", vbExclamation, "File Access Error"
+        
+        Case 2766
+            'Strange error that sometimes appears when sorting - ignore!
+            
+        
+        
+        'ODBC Data Errors
+        Case 3146
+            FormattedMsgBox "Cannot Complete Action." & _
+             "@You may not have completed all required fields or you may be attempting to add a duplicate record." & _
+             "@Complete the remaining fields, or choose 'Undo' from the Edit menu " & _
+             "to cancel your changes before trying this action again.", vbExclamation
+        Case 3155
+            FormattedMsgBox "Cannot Complete Action." & _
+             "@You may not have sufficient rights to complete this action." & _
+             "@Please check you have been granted sufficient user rights to complete this action.", vbExclamation
+        Case 0
+            FormattedMsgBox "Cannot Complete Action.", vbExclamation
+        
+        
+        Case Else
+            If blnShowUnknownError = True Or IsMissing(blnShowUnknownError) Then
+                FormattedMsgBox "Unexpected Error." & _
+                    "@Error: " & intErrorNumber & _
+                    "@" & "An unexpected error has occurred." ' Errors(intErrorNumber).Description, vbCritical
+            End If
+            StandardErrors = False
+        End Select
+End Function
+
+Public Function FormattedMsgBox(Prompt As String, _
+                         Optional Buttons As Long = vbOKOnly, _
+                         Optional Title As String = "Microsoft Access", _
+                         Optional HelpFile As Variant, _
+                         Optional Context As Variant) As Long
+                    
+'This code originally from www.trigeminal.com
+'This code produces a formatted error message box.
+'The @ character should be used at the end of the title text and the description text.
+'There must be two @ characters even if there is no description text
+'The normal message box function in Access 97 supports use of the @ character to create
+' formatted message boxes, but subsequant versions do not. Use this method even if you
+' are developing for Access 97 to prevent problems when moving to later versions of Acess.
+                    
+    Dim strMsg As String
+    
+    If IsMissing(HelpFile) Or IsMissing(Context) Then
+       strMsg = "MsgBox(" & Chr(34) & Prompt & Chr(34) & ", " & Buttons & _
+                 ", " & Chr(34) & Title & Chr(34) & ")"
+    Else
+       strMsg = "MsgBox(" & Chr(34) & Prompt & Chr(34) & ", " & Buttons & _
+                 ", " & Chr(34) & Title & Chr(34) & ", " & Chr(34) & _
+                 HelpFile & Chr(34) & ", " & Context & ")"
+    End If
+    FormattedMsgBox = Eval(strMsg)
+End Function
