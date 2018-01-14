@@ -16,7 +16,7 @@ Option Explicit
 '
 ' Usage         : Check out the included sample forms to see the code that must be
 '                   added to each form and subform
-'                   A video explanation is available at https://youtu.be/37mXdYtEtQo
+'                   A video explanation is available at https://youtu.be/wfRWTUDBLxQ
 '
 ' Feedback      : If you found this useful, please take the time to give some feedback
 '                   at pdtech.co.uk
