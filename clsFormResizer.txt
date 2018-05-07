@@ -95,7 +95,7 @@ Public Sub init(CallingForm As Form, Optional IntDefaultFormWdith As Integer, Op
             If InStr(1, ctrl.Properties("tag"), "moveY") Then
                 armoveablecontrol(X, 4) = ctrl.Properties("top")
                 armoveablecontrol(X, 5) = GetResizeFactor(Mid(ctrl.Properties("tag"), InStr(1, ctrl.Properties("tag"), "MoveY") + 5, 100))
-                arsizeablecontrol(X, 6) = ctrl.ControlType
+                armoveablecontrol(X, 6) = ctrl.ControlType
             Else
                 armoveablecontrol(X, 4) = -1
             End If
