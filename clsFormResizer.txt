@@ -53,18 +53,23 @@ Public Sub init(CallingForm As Form, Optional IntDefaultFormWdith As Integer, Op
     For Each ctrl In frm.Controls
         If InStr(1, ctrl.Properties("tag"), "Grow") Then X = X + 1
     Next
-    ReDim arsizeablecontrol(X, 6)
+    ReDim arsizeablecontrol(X, 7)
     
+    'Controls marked with Grow
     X = 1
     For Each ctrl In frm.Controls
         If InStr(1, ctrl.Properties("tag"), "Grow") Then
             arsizeablecontrol(X, 1) = ctrl.Properties("Name")
+            
+            'Grow in X Plane (width)
             If InStr(1, ctrl.Properties("tag"), "growX") Then
                 arsizeablecontrol(X, 2) = ctrl.Properties("Width")
                 arsizeablecontrol(X, 3) = GetResizeFactor(Mid(ctrl.Properties("tag"), InStr(1, ctrl.Properties("tag"), "GrowX") + 5, 100))
             Else
                 arsizeablecontrol(X, 2) = 0
             End If
+            
+            'Grow In Y Plane (height)
             If InStr(1, ctrl.Properties("tag"), "growY") Then
                 arsizeablecontrol(X, 4) = ctrl.Properties("Height")
                 arsizeablecontrol(X, 5) = GetResizeFactor(Mid(ctrl.Properties("tag"), InStr(1, ctrl.Properties("tag"), "GrowY") + 5, 100))
@@ -72,10 +77,19 @@ Public Sub init(CallingForm As Form, Optional IntDefaultFormWdith As Integer, Op
             Else
                 arsizeablecontrol(X, 4) = 0
             End If
+            
+            'Increase the font as the control grows?
+            If InStr(1, ctrl.Properties("tag"), "ScaleFont") Then
+                arsizeablecontrol(X, 7) = frm.Controls(arsizeablecontrol(X, 1)).Properties("FontSize")
+            Else
+                arsizeablecontrol(X, 7) = 0
+            End If
+            
             X = X + 1
         End If
     Next
     
+    'Controls marked with Move
     X = 0
     For Each ctrl In frm.Controls
         If InStr(1, ctrl.Properties("tag"), "Move") Then X = X + 1
@@ -95,7 +109,7 @@ Public Sub init(CallingForm As Form, Optional IntDefaultFormWdith As Integer, Op
             If InStr(1, ctrl.Properties("tag"), "moveY") Then
                 armoveablecontrol(X, 4) = ctrl.Properties("top")
                 armoveablecontrol(X, 5) = GetResizeFactor(Mid(ctrl.Properties("tag"), InStr(1, ctrl.Properties("tag"), "MoveY") + 5, 100))
-                armoveablecontrol(X, 6) = ctrl.ControlType
+                arsizeablecontrol(X, 6) = ctrl.ControlType
             Else
                 armoveablecontrol(X, 4) = -1
             End If
@@ -130,12 +144,20 @@ Private Sub frm_Resize()
     Dim X As Integer
     Dim dblformbottom As Double
     Dim ctrl As Control
+    Dim ScaleFactorX As Double
+    Dim ScaleFactorY As Double
+    Dim ScaleFontX As Double
+    Dim ScaleFontY As Double
     
     dblGrowXFactor = frm.InsideWidth - IntFormWidth
     dblGrowYFactor = frm.InsideHeight - IntFormHeight
     
     If dblGrowXFactor <= 0 Then dblGrowXFactor = 0
     If dblGrowYFactor < 0 Then dblGrowYFactor = 0
+    
+    
+    frm.Width = frm.WindowWidth
+    frm.Section(acDetail).Height = IntHeightDetail + dblGrowYFactor
     
     
     'Size controls
@@ -152,7 +174,7 @@ Private Sub frm_Resize()
     Next
 
     
-    'Now size the other controls
+    'Now size any tab controls
     For X = 1 To UBound(arsizeablecontrol)
         If arsizeablecontrol(X, 6) = acTabCtl Then
             If Not arsizeablecontrol(X, 2) = 0 Then
@@ -165,6 +187,33 @@ Private Sub frm_Resize()
     Next
     
     
+    'Resize the text in any control marked with ScaleFont
+    For X = 1 To UBound(arsizeablecontrol)
+        If arsizeablecontrol(X, 7) > 0 Then
+            'Calculate the font scaling factor if the font in this label is set to scale
+            ScaleFactorX = ((dblGrowXFactor * arsizeablecontrol(X, 3)) + arsizeablecontrol(X, 2)) / arsizeablecontrol(X, 2)
+            ScaleFactorY = ((dblGrowYFactor * arsizeablecontrol(X, 5)) + arsizeablecontrol(X, 4)) / arsizeablecontrol(X, 4)
+            ScaleFontX = arsizeablecontrol(X, 7) * ScaleFactorX
+            ScaleFontY = arsizeablecontrol(X, 7) * ScaleFactorY
+            
+            'Cap maximum font size to 126
+            If ScaleFontX > 126 Then ScaleFontX = 126
+            If ScaleFontY > 126 Then ScaleFontY = 126
+            
+            'Use the lower of the X and Y scaling factors
+            If ScaleFontX > ScaleFontY Then
+                frm.Controls(arsizeablecontrol(X, 1)).Properties("FontSize") = ScaleFontY
+            Else
+                frm.Controls(arsizeablecontrol(X, 1)).Properties("FontSize") = ScaleFontX
+            End If
+            
+            VerticalAlignCenter frm.Controls(arsizeablecontrol(X, 1))
+            
+            'Debug.Print ScaleFactorX & "    " & ScaleFactorY & "     " & frm.Controls(arsizeablecontrol(X, 1)).Properties("FontSize")
+            
+        End If
+    Next
+    
     
     'Move Controls
     For X = 1 To UBound(armoveablecontrol)
@@ -176,8 +225,7 @@ Private Sub frm_Resize()
         End If
     Next
 
-    frm.Width = frm.WindowWidth
-    frm.Section(acDetail).Height = IntHeightDetail + dblGrowYFactor
+
     
 
 Proc_Exit:
@@ -214,3 +262,51 @@ Public Sub ResizeNow()
     'Forces an immediate resize - very rarely needed
     frm_Resize
 End Sub
+
+Private Sub VerticalAlignCenter(ByRef ctl As Control)
+On Error GoTo ErrorCode
+    Dim MinimumMargin As Integer
+    Dim BorderWidth As Integer
+    Dim TwipsPerPoint
+    TwipsPerPoint = 20
+    If Not ((TypeOf ctl Is TextBox) Or (TypeOf ctl Is Label)) Then Exit Sub
+   'Figure out how many lines it is
+   Dim LenOfText, WidOfBox, NumberOfLines, HtOfText
+   If TypeOf ctl Is TextBox Then
+    LenOfText = ctl.Text
+    Else:
+    LenOfText = ctl.Caption
+    End If
+    'how wide is this puppy?
+    WidOfBox = ctl.Width
+    LenOfText = (Len(LenOfText) * TwipsPerPoint * ctl.FontSize) / 2
+    
+    'Number of lines based on wrapping
+    NumberOfLines = Int(LenOfText / WidOfBox) + 1
+    
+    'Number of lines based on
+    'HtOfText = NumberOfLines * TwipsPerPoint * ctl.FontSize
+    
+    'Multiply by number of return characters
+    HtOfText = (NumberOfLines * TwipsPerPoint * ctl.FontSize) * (CountChar(ctl.Caption, Chr$(10)) + 1)
+   
+    MinimumMargin = 1 * TwipsPerPoint
+    BorderWidth = (ctl.BorderWidth * TwipsPerPoint) / 2
+    
+    Debug.Print "Height: " & ctl.Height, "HtOfText:" & HtOfText, "Margin: " & ((ctl.Height - HtOfText) / 2) - MinimumMargin - BorderWidth
+    
+    If ((ctl.Height - HtOfText) / 2) - MinimumMargin - BorderWidth > 0 Then
+        ctl.TopMargin = ((ctl.Height - HtOfText) / 2) - MinimumMargin - BorderWidth
+    Else
+        ctl.TopMargin = 0
+    End If
+    
+ErrorCode:
+    Exit Sub
+End Sub
+
+Function CountChar(ByVal Text As String, ByVal Char As String) As Long
+    Dim V As Variant
+    V = Split(Text, Char)
+    CountChar = UBound(V)
+End Function
